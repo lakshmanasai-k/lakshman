@@ -2,13 +2,14 @@
 End-to-end policy RAG demo for internal HR and insurance documents.
 
 Expected layout:
-  data/hr/       HR policy PDF, DOCX, TXT, or Markdown files
+  data/hr/        HR policy PDF, DOCX, TXT, or Markdown files
   data/insurance/ insurance policy PDF, DOCX, TXT, or Markdown files
 
-Install: fastapi uvicorn openai numpy pypdf python-docx
+Install dependencies from projects/requirements.txt.
 Configure OPENAI_API_KEY and OPENAI_MODEL before running:
   uvicorn projects.complete_policy_rag_application:app --reload
 
+The workflow uses LangGraph for retrieval, evidence routing, and answer generation.
 This is a learning reference. Add authentication, user-to-document access
 controls, persistent vector storage, audit logging, and retention controls
 before using real employee or customer data.
@@ -20,11 +21,12 @@ import re
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypedDict
 
 import numpy as np
 from docx import Document
 from fastapi import FastAPI, HTTPException, Request
+from langgraph.graph import END, START, StateGraph
 from openai import OpenAI
 from pydantic import BaseModel, Field
 from pypdf import PdfReader
@@ -62,6 +64,14 @@ class SourceReference(BaseModel):
 class AskResponse(BaseModel):
     answer: str
     sources: list[SourceReference]
+
+
+class RagState(TypedDict, total=False):
+    domain: str
+    question: str
+    top_k: int
+    matches: list[tuple[Passage, float]]
+    answer: str
 
 
 def read_document(path: Path) -> str:
@@ -199,6 +209,58 @@ def generate_answer(
     return response.output_text.strip()
 
 
+def build_policy_workflow(client: OpenAI, index: PolicyIndex):
+    def retrieve_node(state: RagState) -> dict:
+        matches = index.search(
+            client,
+            state["domain"],
+            state["question"],
+            state["top_k"],
+        )
+        return {
+            "matches": [
+                (passage, score)
+                for passage, score in matches
+                if score >= MIN_RELEVANCE
+            ]
+        }
+
+    def route_after_retrieval(state: RagState) -> str:
+        return "generate" if state.get("matches") else "no_evidence"
+
+    def generate_node(state: RagState) -> dict:
+        return {
+            "answer": generate_answer(
+                client,
+                state["domain"],
+                state["question"],
+                state["matches"],
+            )
+        }
+
+    def no_evidence_node(_state: RagState) -> dict:
+        return {
+            "answer": (
+                "I could not find enough supporting information in the selected "
+                "policy documents."
+            )
+        }
+
+    builder = StateGraph(RagState)
+    builder.add_node("retrieve", retrieve_node)
+    builder.add_node("generate", generate_node)
+    builder.add_node("no_evidence", no_evidence_node)
+    builder.add_edge(START, "retrieve")
+    builder.add_conditional_edges(
+        "retrieve",
+        route_after_retrieval,
+        {"generate": "generate", "no_evidence": "no_evidence"},
+    )
+    builder.add_edge("generate", END)
+    builder.add_edge("no_evidence", END)
+    return builder.compile()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     passages = load_passages()
@@ -208,8 +270,10 @@ async def lifespan(app: FastAPI):
         )
     client = make_openai_client()
     vectors = embed_texts(client, [passage.text for passage in passages])
-    app.state.policy_index = PolicyIndex(passages, vectors)
+    index = PolicyIndex(passages, vectors)
+    app.state.policy_index = index
     app.state.openai_client = client
+    app.state.policy_workflow = build_policy_workflow(client, index)
     yield
 
 
@@ -225,18 +289,15 @@ def ask_policy(request: AskRequest, http_request: Request) -> AskResponse:
     if looks_like_prompt_injection(request.question):
         raise HTTPException(status_code=400, detail="That request cannot be processed.")
 
-    client: OpenAI = http_request.app.state.openai_client
-    index: PolicyIndex = http_request.app.state.policy_index
-    matches = index.search(client, request.domain, request.question, request.top_k)
-    matches = [(passage, score) for passage, score in matches if score >= MIN_RELEVANCE]
-
-    if not matches:
-        return AskResponse(
-            answer="I could not find enough supporting information in the selected policy documents.",
-            sources=[],
-        )
-
-    answer = generate_answer(client, request.domain, request.question, matches)
+    workflow = http_request.app.state.policy_workflow
+    result = workflow.invoke(
+        {
+            "domain": request.domain,
+            "question": request.question,
+            "top_k": request.top_k,
+        }
+    )
+    matches = result.get("matches", [])
     sources = [
         SourceReference(
             citation=passage.passage_id,
@@ -245,4 +306,4 @@ def ask_policy(request: AskRequest, http_request: Request) -> AskResponse:
         )
         for passage, score in matches
     ]
-    return AskResponse(answer=answer, sources=sources)
+    return AskResponse(answer=result["answer"], sources=sources)
