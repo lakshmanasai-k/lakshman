@@ -55,4 +55,12 @@ A machine learning workflow for identifying potentially suspicious card transact
 - Validate response structure and decline or qualify answers when evidence is missing.
 - Evaluate retrieval relevance, answer grounding, and citation accuracy.
 
+## Project Code and Data Engineering
+
+- [Project index, data handling notes, and Data Engineer responsibilities](projects/PROJECTS.md)
+- [Complete HR and Insurance Policy RAG application](projects/complete_policy_rag_application.py)
+- [Credit Card Fraud Detection code](projects/credit_card_fraud_detection.py)
+- [Finance Databricks Medallion pipeline](projects/finance_databricks_pipeline.py)
+- [Python dependencies for the examples](projects/requirements.txt)
+
 This repository is my portfolio space for AI/ML, RAG, and data engineering work.
