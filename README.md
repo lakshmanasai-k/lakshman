@@ -7,7 +7,7 @@ I build Python-based AI and machine learning applications, with a focus on retri
 ## Technical Skills
 
 - **Languages:** Python, SQL
-- **Generative AI:** RAG, prompt engineering, embeddings, vector search, hybrid retrieval, citations
+- **Generative AI:** RAG, prompt engineering, embeddings, vector search, retrieval evaluation, citations
 - **Frameworks and APIs:** LangChain, LangGraph, FastAPI, REST APIs
 - **Machine learning:** scikit-learn, XGBoost, Random Forest, Logistic Regression, feature engineering, model evaluation
 - **Data:** Pandas, NumPy, PySpark, ETL
@@ -25,11 +25,10 @@ I build Python-based AI and machine learning applications, with a focus on retri
 
 A document question-answering system that ingests policy files, prepares searchable chunks, creates embeddings, retrieves relevant passages, and generates answers grounded in those sources.
 
-- Process PDF and DOCX files; clean and split content into meaningful chunks.
-- Store embeddings and document metadata for retrieval.
-- Combine semantic/vector search with keyword search to find relevant passages.
-- Orchestrate retrieval and answer generation with LangGraph and serve requests through FastAPI.
-- Include source citations, structured response validation, and a fallback when the documents do not support an answer.
+- Process PDF, DOCX, TXT, and Markdown files; split content into overlapping chunks.
+- Create embeddings and rank passages with semantic similarity.
+- Orchestrate retrieval, evidence routing, and answer generation with LangGraph; serve requests through FastAPI.
+- Include source citations and a fallback when the selected documents do not support an answer.
 
 ### Internal HR Policy Assistant
 
@@ -43,24 +42,24 @@ A RAG use case for searching insurance documents and answering questions about p
 
 A machine learning workflow for identifying potentially suspicious card transactions.
 
-- Clean transaction data and build useful transaction features.
-- Address class imbalance and compare models such as Logistic Regression, Random Forest, and XGBoost.
-- Evaluate with precision, recall, F1 score, ROC-AUC, and a confusion matrix, with attention to missed fraud and false alerts.
-- Structure the workflow so scoring can be exposed through an API and monitored over time.
+- Prepare transaction data and preserve a stratified train, validation, and test split.
+- Compare Logistic Regression and Random Forest, with validation-based threshold selection.
+- Evaluate precision, recall, F1 score, ROC-AUC, and a confusion matrix, with attention to missed fraud and false alerts.
 
 ## RAG Guardrails and Evaluation
 
 - Ground answers in retrieved documents and include citations.
-- Detect prompt-injection attempts and keep system instructions separate from document content.
-- Validate response structure and decline or qualify answers when evidence is missing.
+- Treat retrieved document text as reference data, separate from system instructions.
+- Validate response structure and qualify answers when evidence is missing.
 - Evaluate retrieval relevance, answer grounding, and citation accuracy.
 
 ## Project Code and Data Engineering
 
-- [Project index, data handling notes, and Data Engineer responsibilities](projects/PROJECTS.md)
+- [Project index and Data Engineer responsibilities](projects/PROJECTS.md)
 - [Complete HR and Insurance Policy RAG application](projects/complete_policy_rag_application.py)
 - [Credit Card Fraud Detection code](projects/credit_card_fraud_detection.py)
 - [Finance Databricks Medallion pipeline](projects/finance_databricks_pipeline.py)
+- [Finance data handling and Databricks Data Engineer guide](projects/finance_databricks_data_handling.md)
 - [Python dependencies for the examples](projects/requirements.txt)
 
 This repository is my portfolio space for AI/ML, RAG, and data engineering work.
